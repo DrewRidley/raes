@@ -1,3 +1,6 @@
+mod decrypt;
+mod encrypt;
+
 pub fn add(left: usize, right: usize) -> usize {
     left + right
 }
