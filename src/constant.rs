@@ -1,3 +1,6 @@
+// This file contains constants that are used in both encryption and decryption.
+
+#[allow(dead_code)]
 pub const SBOX: [[u8; 16]; 16] = [
     [
         0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab,
@@ -65,6 +68,7 @@ pub const SBOX: [[u8; 16]; 16] = [
     ],
 ];
 
+#[allow(dead_code)]
 pub const INVERSE_SBOX: [[u8; 16]; 16] = [
     [
         0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7,
@@ -133,6 +137,7 @@ pub const INVERSE_SBOX: [[u8; 16]; 16] = [
 ];
 
 //The round constants required for each round.
+#[allow(dead_code)]
 pub const ROUND_CONSTANTS: [u32; 10] = [
     0x01 << 24,
     0x02 << 24,
