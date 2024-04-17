@@ -38,3 +38,100 @@ static INVERSE_AES_SBOX: [[u8;16];16] = [ [0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0
 static RC: [u8; 15] = [0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36, 0x6C, 0xD8, 0xAB, 0x4D];
 
 
+
+fn galois_multiplication(ap: u8, bp: u8) -> u8 {
+    let mut p = 0u8;
+    let mut high_bit = 0u8;
+    let mut a = ap;
+    let mut b = bp;
+    for i in 0..8 {
+        if b&1 == 1 {
+            p ^= a
+        }
+        high_bit = a & 0x80;
+        a = (a<<1) & 0xFF;
+        if high_bit == 0x80 {
+            a ^= 0x1b;
+        }
+        b = (b>>1) & 0xFF;
+    }
+    return p & 0xFF;
+}
+
+fn mix_columns(state: &mut [[u8;4];4]) {
+    for i in 0..4 {
+
+        let mut temp = [0u8;4];
+        for j in 0..4 {
+            temp[j] = state[j][i];
+        }
+
+        state[0][i] = galois_multiplication(temp[0], 2) ^ galois_multiplication(temp[3], 1) ^ galois_multiplication(temp[2], 1) ^ galois_multiplication(temp[1], 3);
+        state[1][i] = galois_multiplication(temp[1], 2) ^ galois_multiplication(temp[0], 1) ^ galois_multiplication(temp[3], 1) ^ galois_multiplication(temp[2], 3);
+        state[2][i] = galois_multiplication(temp[2], 2) ^ galois_multiplication(temp[1], 1) ^ galois_multiplication(temp[0], 1) ^ galois_multiplication(temp[3], 3);
+        state[3][i] = galois_multiplication(temp[3], 2) ^ galois_multiplication(temp[2], 1) ^ galois_multiplication(temp[1], 1) ^ galois_multiplication(temp[0], 3);
+
+    }
+}
+
+fn inv_mix_columns(state: &mut [[u8;4];4]) {
+    for i in 0..4 {
+
+        let mut temp = [0u8;4];
+        for j in 0..4 {
+            temp[j] = state[j][i];
+        }
+
+        state[0][i] = galois_multiplication(temp[0], 14) ^ galois_multiplication(temp[3], 9) ^ galois_multiplication(temp[2], 13) ^ galois_multiplication(temp[1], 11);
+        state[1][i] = galois_multiplication(temp[1], 14) ^ galois_multiplication(temp[0], 9) ^ galois_multiplication(temp[3], 13) ^ galois_multiplication(temp[2], 11);
+        state[2][i] = galois_multiplication(temp[2], 14) ^ galois_multiplication(temp[1], 9) ^ galois_multiplication(temp[0], 13) ^ galois_multiplication(temp[3], 11);
+        state[3][i] = galois_multiplication(temp[3], 14) ^ galois_multiplication(temp[2], 9) ^ galois_multiplication(temp[1], 13) ^ galois_multiplication(temp[0], 11);
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_galois_multiplication() {
+        assert_eq!(galois_multiplication(0x57, 0x83), 0xc1);
+    }
+
+    #[test]
+    fn test_mix_columns() {
+        let mut state = [
+            [0xdb, 0xf2, 0x3d, 0x4d],
+            [0x13, 0x0a, 0x26, 0x89],
+            [0x53, 0x22, 0x5e, 0x84],
+            [0x49, 0xf1, 0x97, 0x1c]
+        ];
+        let expected = [
+            [0x8e, 0x4d, 0xa1, 0xbc],
+            [0x9f, 0xdc, 0x58, 0x9d],
+            [0x01, 0x01, 0x01, 0x01],
+            [0x0f, 0x0a, 0x0d, 0x09]
+        ];
+        mix_columns(&mut state);
+        assert_eq!(state, expected);
+    }
+
+    #[test]
+    fn test_inv_mix_columns() {
+        let mut state = [
+            [0x8e, 0x4d, 0xa1, 0xbc],
+            [0x9f, 0xdc, 0x58, 0x9d],
+            [0x01, 0x01, 0x01, 0x01],
+            [0x0f, 0x0a, 0x0d, 0x09]
+        ];
+        let expected = [
+            [0xdb, 0xf2, 0x3d, 0x4d],
+            [0x13, 0x0a, 0x26, 0x89],
+            [0x53, 0x22, 0x5e, 0x84],
+            [0x49, 0xf1, 0x97, 0x1c]
+        ];
+        inv_mix_columns(&mut state);
+        assert_eq!(state, expected);
+    }
+}
