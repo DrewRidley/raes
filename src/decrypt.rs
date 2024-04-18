@@ -27,13 +27,5 @@ fn perform_rounds(round_keys: &[u32; 8]) {
     add_round_key(round_keys[0]);
 }
 
-fn add_round_key(round_key: u32) {}
-
-fn inverse_mix_columns() {}
-
-fn inverse_shift_rows() {}
-
-fn inverse_sub_bytes() {}
-
 #[cfg(test)]
 mod test {}

@@ -71,28 +71,63 @@ pub mod shared {
     }
 
     fn mix_columns(state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
+        apply_mix_columns(
+            state,
+            &[
+                [0x02, 0x03, 0x01, 0x01],
+                [0x01, 0x02, 0x03, 0x01],
+                [0x01, 0x01, 0x02, 0x03],
+                [0x03, 0x01, 0x01, 0x02],
+            ],
+        )
+    }
+
+    fn inv_mix_columns(state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
+        apply_mix_columns(
+            state,
+            &[
+                [0x0E, 0x0B, 0x0D, 0x09],
+                [0x09, 0x0E, 0x0B, 0x0D],
+                [0x0D, 0x09, 0x0E, 0x0B],
+                [0x0B, 0x0D, 0x09, 0x0E],
+            ],
+        )
+    }
+
+    fn apply_mix_columns(state: [[u8; 4]; 4], matrix: &[[u8; 4]; 4]) -> [[u8; 4]; 4] {
         let mut output = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
 
         for j in 0..4 {
-            let mut column = state[j];
-            let mut copy: [u8; 4] = [0, 0, 0, 0];
-            let mut doubled_copy: [u8; 4] = [0, 0, 0, 0];
-            let mut high_bit: u8 = 0;
+            let column = state[j];
+            let mut result_column = [0; 4];
 
             for i in 0..4 {
-                copy[i] = column[i];
-
-                high_bit = column[i] >> 7;
-                doubled_copy[i] = column[i] << 1;
-                doubled_copy[i] ^= high_bit * 0x1B;
+                result_column[i] = gf_mul(matrix[i][0], column[0])
+                    ^ gf_mul(matrix[i][1], column[1])
+                    ^ gf_mul(matrix[i][2], column[2])
+                    ^ gf_mul(matrix[i][3], column[3]);
             }
-            column[0] = doubled_copy[0] ^ copy[3] ^ copy[2] ^ doubled_copy[1] ^ copy[1];
-            column[1] = doubled_copy[1] ^ copy[0] ^ copy[3] ^ doubled_copy[2] ^ copy[2];
-            column[2] = doubled_copy[2] ^ copy[1] ^ copy[0] ^ doubled_copy[3] ^ copy[3];
-            column[3] = doubled_copy[3] ^ copy[2] ^ copy[1] ^ doubled_copy[0] ^ copy[0];
-            output[j] = column;
+
+            output[j] = result_column;
         }
+
         output
+    }
+
+    fn gf_mul(mut a: u8, mut b: u8) -> u8 {
+        let mut result = 0;
+        while b > 0 {
+            if b & 1 != 0 {
+                result ^= a;
+            }
+            let high_bit_set = a & 0x80 != 0;
+            a <<= 1;
+            if high_bit_set {
+                a ^= 0x1B; // XOR with irreducible polynomial x^8 + x^4 + x^3 + x + 1
+            }
+            b >>= 1;
+        }
+        result
     }
 
     #[cfg(test)]
@@ -169,6 +204,24 @@ pub mod shared {
             ];
 
             let output = mix_columns(state);
+            assert_eq!(expected, output);
+        }
+
+        #[test]
+        fn test_inv_mix_columns() {
+            let state = [
+                [0xbd, 0x6e, 0x7c, 0x3d],
+                [0xf2, 0xb5, 0x77, 0x9e],
+                [0x0b, 0x61, 0x21, 0x6e],
+                [0x8b, 0x10, 0xb6, 0x89],
+            ];
+            let expected = [
+                [0x47, 0x73, 0xb9, 0x1f],
+                [0xf7, 0x2f, 0x35, 0x43],
+                [0x61, 0xcb, 0x01, 0x8e],
+                [0xa1, 0xe6, 0xcf, 0x2c],
+            ];
+            let output = inv_mix_columns(state);
             assert_eq!(expected, output);
         }
     }
