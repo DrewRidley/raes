@@ -1,6 +1,6 @@
 use std::{fs::{File, OpenOptions}, io::{BufReader, BufWriter, Read, Write}, path::Path};
 
-use crate::shared::{key_expansion, mix_columns, sub_bytes};
+use crate::shared::{key_expansion, mix_columns, sub_bytes, sub_bytes_state};
 
 fn pad_block(block: &mut Vec<u8>) {
     let padding_needed = 16 - block.len() % 16;
@@ -66,7 +66,7 @@ fn perform_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 8]) {
     for i in 1..14 {
         // Do 14 rounds for AES-256
         shift_rows(state);
-        sub_bytes(state);
+        sub_bytes_state(state);
         mix_columns(state); // Not applied in the last round
         add_round_key(state, round_keys[i]);
     }
