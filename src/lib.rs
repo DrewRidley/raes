@@ -56,7 +56,7 @@ pub mod shared {
         s3 << 24 | s2 << 16 | s1 << 8 | s0
     }
 
-    fn sub_bytes(input: u8) -> u8 {
+    pub fn sub_bytes(input: u8) -> u8 {
         let x = input >> 4;
         let y = input & 0xF;
 
@@ -70,7 +70,7 @@ pub mod shared {
         (word << 8) | first_byte
     }
 
-    fn mix_columns(state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
+    pub fn mix_columns(state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
         apply_mix_columns(
             state,
             &[
@@ -82,7 +82,7 @@ pub mod shared {
         )
     }
 
-    fn inv_mix_columns(state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
+    pub fn inv_mix_columns(state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
         apply_mix_columns(
             state,
             &[

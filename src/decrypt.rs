@@ -27,5 +27,29 @@ fn perform_rounds(round_keys: &[u32; 8]) {
     add_round_key(round_keys[0]);
 }
 
+fn inverse_shift_rows(state: &mut [[u8; 4]; 4]) {
+    
+    // Second row shifts right by 1
+    let temp = state[1][3];
+    for i in (1..4).rev() {
+        state[1][i] = state[1][i - 1];
+    }
+    state[1][0] = temp;
+    
+    let temp1 = state[2][3];
+    let temp2 = state[2][2];
+    state[2][2] = state[2][1];
+    state[2][3] = state[2][0];
+    state[2][0] = temp2;
+    state[2][1] = temp1;
+    
+    let temp = state[3][0];
+    for i in 0..3 {
+        state[3][i] = state[3][i + 1];
+    }
+    state[3][3] = temp;
+}
+
+
 #[cfg(test)]
 mod test {}
