@@ -6,33 +6,37 @@ pub mod shared {
     use crate::constant::INVERSE_SBOX;
     pub use crate::constant::{ROUND_CONSTANTS, SBOX};
 
+
     pub fn key_expansion(key: [u8; 32]) -> [u32; 60] {
-        let mut w: [u32; 60] = [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0,
-        ];
-        let mut temp: u32 = 0;
-        let mut i = 0;
+        //AES256.
+        const NK: usize = 8;
+        const NR: usize = 14;
+        
+        let mut w: [u32; 60] = [0; 60];
+        let mut temp;
 
-        while i < 8 {
+
+        let mut i: usize = 0;
+        while i <= NK - 1 {
             w[i] = u8s_to_u32([key[4 * i], key[4 * i + 1], key[4 * i + 2], key[4 * i + 3]]);
-            i = i + 1;
+            i += 1;
         }
-        assert!(i == 8);
 
-        while i < 59 {
+        assert!(i == NK);
+
+        while i <= 4 * NR + 3 {
             temp = w[i - 1];
-
-            if i % 8 == 0 {
-                temp = sub_word(rot_word(temp)) ^ ROUND_CONSTANTS[i / 8];
-            } else if i % 8 == 4 {
-                temp = sub_word(temp);
+            if i % NK == 0 {
+                temp = sub_word(rot_word(temp)) ^ ROUND_CONSTANTS[(i / NK) - 1]
+            }
+            else if NK > 6 && i % NK == 4 {
+                temp = sub_word(temp)
             }
 
-            w[i] = w[i - 8] ^ temp;
-            i = i + 1;
+            w[i] = w[i - NK] ^ temp;
+            i += 1;
         }
+
         w
     }
 
@@ -205,7 +209,9 @@ pub mod shared {
         state[3][3] = temp33;
     }
 
-    pub fn add_round_key(state: &mut [[u8; 4]; 4], round_key: [u32; 4]) {}
+    pub fn add_round_key(state: &mut [[u8; 4]; 4], round_key: [u32; 4]) {
+        todo!();
+    }
 
     #[cfg(test)]
     mod test {
@@ -232,18 +238,18 @@ pub mod shared {
 
         #[test]
         fn test_sub_word() {
-            let test_word = 0x12_34_56_78;
+            let test_word = 0xcf4f3c09;
             let sub_word_output = sub_word(test_word);
-            let expected_output = 0xc9_18_b1_bc;
+            let expected_output = 0x8a84eb01;
 
             assert_eq!(sub_word_output, expected_output);
         }
 
         #[test]
         fn test_rot_word() {
-            let test_word = 0x12_34_56_78;
+            let test_word = 0x09cf4f3c;
             let rot_word_output = rot_word(test_word);
-            let expected_output = 0x34_56_78_12;
+            let expected_output = 0xcf4f3c09;
 
             assert_eq!(rot_word_output, expected_output);
         }
