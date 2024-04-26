@@ -151,17 +151,6 @@ pub mod shared {
         result
     }
 
-    ///Given a block, it attempts to initialize the state from it.
-    ///State is not directly initialized from the block, but instead its transposed like so:
-    pub fn initialize_state_from_block(block: &[u8]) -> [[u8; 4]; 4] {
-        let mut state = [[0u8; 4]; 4];
-        for i in 0..4 {
-            for j in 0..4 {
-                state[j][i] = block[i * 4 + j];
-            }
-        }
-        state
-    }
 
     pub fn shift_rows(state: &mut [[u8; 4]; 4]) {
         let temp = state[1][0];
@@ -210,11 +199,18 @@ pub mod shared {
     }
 
     pub fn add_round_key(state: &mut [[u8; 4]; 4], round_key: [u32; 4]) {
-        todo!();
+        for i in 0..4 {
+            let key_bytes = round_key[i].to_be_bytes();
+            for j in 0..4 {
+                state[j][i] ^= key_bytes[j];  
+            }
+        }
     }
 
     #[cfg(test)]
     mod test {
+
+        use crate::{decrypt::decrypt_one_block, encrypt::encrypt_one_block};
 
         use super::*;
 
@@ -346,5 +342,40 @@ pub mod shared {
             inverse_shift_rows(&mut input);
             assert_eq!(input, expected);
         }
+
+        #[test]
+        fn test_encrypt() {
+            // Define the inputs as strings for easier handling
+            let plaintext_hex = "00112233445566778899aabbccddeeff";
+            let key_hex = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+            let expected_hex = "8ea2b7ca516745bfeafc49904b496089";
+
+            // Decode the hex strings and convert to fixed-size arrays
+            let plaintext: [u8; 16] = hex::decode(plaintext_hex)
+                .expect("Failed to decode plaintext")
+                .try_into()
+                .expect("Incorrect size for plaintext");
+
+            let key: [u8; 32] = hex::decode(key_hex)
+                .expect("Failed to decode key hex.")
+                .try_into()
+                .expect("Incorrect size for key");
+
+            let expected: [u8; 16] = hex::decode(expected_hex)
+                .expect("Failed to decode expected ciphertext")
+                .try_into()
+                .expect("Incorrect size for expected ciphertext");
+
+            // Encrypt and compare
+            let encrypted_data = encrypt_one_block(&plaintext, &key);
+            assert_eq!(encrypted_data, expected, "Encryption did not produce the expected output");
+        }
+
+       #[test]
+       fn encrypt_decrypt() {
+           let data: [u8; 16] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+           let key: [u8; 32] = [0; 32];  // Example key, replace with actual key generation
+           assert_eq!(data, decrypt_one_block(&encrypt_one_block(&data, &key), &key));
+       }
     }
 }
