@@ -6,7 +6,10 @@ use std::{
     path::Path,
 };
 
-use crate::shared::{add_round_key, initialize_state_from_block, inverse_mix_columns, inverse_sub_bytes, key_expansion};
+use crate::shared::{
+    add_round_key, initialize_state_from_block, inverse_mix_columns, inverse_shift_rows,
+    inverse_sub_bytes, key_expansion,
+};
 
 pub fn encrypt(input_path: &Path, key: &[u8; 32], output_path: &Path) -> std::io::Result<()> {
     let input_file = File::open(input_path)?;
@@ -49,42 +52,39 @@ pub fn encrypt(input_path: &Path, key: &[u8; 32], output_path: &Path) -> std::io
 }
 
 // this function will perform the operations of a decryption round
-fn perform_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 8]) {
-    add_round_key(round_keys[round_keys.len() - 1]); // add last round key
+fn perform_rounds(mut state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
+    add_round_key(
+        state,
+        [
+            round_keys[4 * 14],
+            round_keys[4 * 14 + 1],
+            round_keys[4 * 14 + 2],
+            round_keys[4 * 14 + 3],
+        ],
+    ); // add last round key
 
     for i in (1..14).rev() {
         // reversed so round keys are inserted in reverse
-        inverse_shift_rows(&mut state);
-        inverse_sub_bytes(&mut state);
-        add_round_key(round_keys[i]);
-        inverse_mix_columns(*state);
+        inverse_sub_bytes(state);
+        inverse_shift_rows(state);
+        inverse_mix_columns(state);
+        add_round_key(
+            state,
+            [
+                round_keys[4 * i],
+                round_keys[4 * i + 1],
+                round_keys[4 * i + 2],
+                round_keys[4 * i + 3],
+            ],
+        );
     }
 
-    inverse_shift_rows(&mut state);
-    inverse_sub_bytes(&mut state);
-    add_round_key(round_keys[0]);
-}
-
-fn inverse_shift_rows(state: &mut [[u8; 4]; 4]) {
-    // Second row shifts right by 1
-    let temp = state[1][3];
-    for i in (1..4).rev() {
-        state[1][i] = state[1][i - 1];
-    }
-    state[1][0] = temp;
-
-    let temp1 = state[2][3];
-    let temp2 = state[2][2];
-    state[2][2] = state[2][1];
-    state[2][3] = state[2][0];
-    state[2][0] = temp2;
-    state[2][1] = temp1;
-
-    let temp = state[3][0];
-    for i in 0..3 {
-        state[3][i] = state[3][i + 1];
-    }
-    state[3][3] = temp;
+    inverse_sub_bytes(state);
+    inverse_shift_rows(state);
+    add_round_key(
+        state,
+        [round_keys[0], round_keys[1], round_keys[2], round_keys[3]],
+    );
 }
 
 #[cfg(test)]

@@ -4,7 +4,10 @@ use std::{
     path::Path,
 };
 
-use crate::{constant::SBOX, shared::{add_round_key, initialize_state_from_block, key_expansion, mix_columns, shift_rows, sub_bytes, sub_bytes_state}};
+use crate::shared::{
+    add_round_key, initialize_state_from_block, key_expansion, mix_columns, shift_rows,
+    sub_bytes_state,
+};
 
 fn pad_block(block: &mut Vec<u8>) {
     let padding_needed = 16 - block.len() % 16;
@@ -54,25 +57,38 @@ pub fn encrypt(input_path: &Path, key: &[u8; 32], output_path: &Path) -> std::io
     Ok(())
 }
 
-
-
-fn perform_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 8]) {
-    add_round_key(state, round_keys[0]);
+fn perform_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
+    add_round_key(
+        state,
+        [round_keys[0], round_keys[1], round_keys[2], round_keys[3]],
+    );
 
     for i in 1..14 {
         // Do 14 rounds for AES-256
         shift_rows(state);
         sub_bytes_state(state);
         mix_columns(state); // Not applied in the last round
-        add_round_key(state, round_keys[i]);
+        add_round_key(
+            state,
+            [
+                round_keys[4 * i],
+                round_keys[4 * i + 1],
+                round_keys[4 * i + 2],
+                round_keys[4 * i + 3],
+            ],
+        );
     }
 
     // Final round (no mix columns)
     shift_rows(state);
-    sub_bytes(state, SBOX);
-    add_round_key(state, round_keys[round_keys.len() - 1]);
+    sub_bytes_state(state);
+    add_round_key(
+        state,
+        [
+            round_keys[4 * 14],
+            round_keys[4 * 14 + 1],
+            round_keys[4 * 14 + 2],
+            round_keys[4 * 14 + 3],
+        ],
+    );
 }
-
-
-
-
