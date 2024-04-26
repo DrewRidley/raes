@@ -180,6 +180,32 @@ pub mod shared {
         state[3][0] = temp;
     }
 
+    pub fn inverse_shift_rows(state: &mut [[u8; 4]; 4]) {
+        let temp11 = state[0][1];
+        let temp21 = state[1][1];
+        let temp22 = state[0][2];
+        let temp31 = state[2][1];
+        let temp32 = state[1][2];
+        let temp33 = state[0][3];
+        
+        
+        state[0][1] = state[3][1];
+        state[0][2] = state[2][2];
+        state[0][3] = state[1][3];
+    
+        state[1][1] = temp11;
+        state[1][2] = state[3][2];
+        state[1][3] = state[2][3];
+    
+        state[2][1] = temp21;
+        state[2][2] = temp22;
+        state[2][3] = state[3][3];
+        
+        state[3][1] = temp31;
+        state[3][2] = temp32;
+        state[3][3] = temp33;
+    }
+
     pub fn add_round_key(state: &mut [[u8; 4]; 4], round_key: [u32; 4]) {
         
     }
@@ -300,5 +326,25 @@ pub mod shared {
             shift_rows(&mut input);            
             assert_eq!(input, expected);
         }
+
+        #[test]
+        fn test_inverse_shift_rows() {
+            let mut input =[
+                [0xa7, 0xbe, 0x1a, 0x69],
+                [0x97, 0xad, 0x73, 0x9b],
+                [0xd8, 0xc9, 0xca, 0x45],
+                [0x1f, 0x61, 0x8b, 0x61]
+            ];
+            let expected = [
+                [0xa7, 0x61, 0xca, 0x9b],
+                [0x97, 0xbe, 0x8b, 0x45],
+                [0xd8, 0xad, 0x1a, 0x61],
+                [0x1f, 0xc9, 0x73, 0x69]    
+            ];
+                
+            inverse_shift_rows(&mut input);
+            assert_eq!(input, expected);
+        }
+    
     }
 }

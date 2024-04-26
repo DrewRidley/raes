@@ -54,13 +54,13 @@ fn perform_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 8]) {
 
     for i in (1..14).rev() {
         // reversed so round keys are inserted in reverse
-        inverse_shift_rows();
+        inverse_shift_rows(&mut state);
         inverse_sub_bytes(&mut state);
         add_round_key(round_keys[i]);
         inverse_mix_columns(*state);
     }
 
-    inverse_shift_rows();
+    inverse_shift_rows(&mut state);
     inverse_sub_bytes(&mut state);
     add_round_key(round_keys[0]);
 }
