@@ -1,6 +1,10 @@
-use std::{fs::{File, OpenOptions}, io::{BufReader, BufWriter, Read, Write}, path::Path};
+use std::{
+    fs::{File, OpenOptions},
+    io::{BufReader, BufWriter, Read, Write},
+    path::Path,
+};
 
-use crate::shared::{key_expansion, mix_columns, sub_bytes, sub_bytes_state};
+use crate::{constant::SBOX, shared::{add_round_key, initialize_state_from_block, key_expansion, mix_columns, shift_rows, sub_bytes, sub_bytes_state}};
 
 fn pad_block(block: &mut Vec<u8>) {
     let padding_needed = 16 - block.len() % 16;
@@ -11,7 +15,11 @@ fn pad_block(block: &mut Vec<u8>) {
 
 pub fn encrypt(input_path: &Path, key: &[u8; 32], output_path: &Path) -> std::io::Result<()> {
     let input_file = File::open(input_path)?;
-    let mut output_file = OpenOptions::new().write(true).create(true).truncate(true).open(output_path)?;
+    let mut output_file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(output_path)?;
 
     let mut reader = BufReader::new(input_file);
     let mut writer = BufWriter::new(output_file);
@@ -47,21 +55,9 @@ pub fn encrypt(input_path: &Path, key: &[u8; 32], output_path: &Path) -> std::io
 }
 
 
-///Given a block, it attempts to initialize the state from it.
-///State is not directly initialized from the block, but instead its transposed like so:
-fn initialize_state_from_block(block: &[u8]) -> [[u8; 4]; 4] {
-    let mut state = [[0u8; 4]; 4];
-    for i in 0..4 {
-        for j in 0..4 {
-            state[j][i] = block[i * 4 + j];
-        }
-    }
-    state
-}
-
 
 fn perform_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 8]) {
-    add_round_key(state, round_keys[0]); 
+    add_round_key(state, round_keys[0]);
 
     for i in 1..14 {
         // Do 14 rounds for AES-256
@@ -73,29 +69,10 @@ fn perform_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 8]) {
 
     // Final round (no mix columns)
     shift_rows(state);
-    sub_bytes(state);
+    sub_bytes(state, SBOX);
     add_round_key(state, round_keys[round_keys.len() - 1]);
 }
 
 
-fn shift_rows(state: &mut [[u8; 4]; 4]) {
 
-    let temp = state[1][0];
-    for i in 0..3 {
-        state[1][i] = state[1][i + 1];
-    }
-    state[1][3] = temp;
 
-    let temp1 = state[2][0];
-    let temp2 = state[2][1];
-    state[2][0] = state[2][2];
-    state[2][1] = state[2][3];
-    state[2][2] = temp1;
-    state[2][3] = temp2;
-
-    let temp = state[3][3];
-    for i in (1..4).rev() {
-        state[3][i] = state[3][i - 1];
-    }
-    state[3][0] = temp;
-}

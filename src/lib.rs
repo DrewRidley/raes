@@ -7,6 +7,7 @@ pub fn add(left: usize, right: usize) -> usize {
 }
 
 pub mod shared {
+    use crate::constant::INVERSE_SBOX;
     pub use crate::constant::{ROUND_CONSTANTS, SBOX};
 
     pub fn key_expansion(key: [u8; 32]) -> [u32; 8] {
@@ -48,10 +49,10 @@ pub mod shared {
         let b1 = (word >> 8 & 0xFF) as u8;
         let b0 = (word & 0xFF) as u8;
 
-        let s3 = sub_bytes(b3) as u32;
-        let s2 = sub_bytes(b2) as u32;
-        let s1 = sub_bytes(b1) as u32;
-        let s0 = sub_bytes(b0) as u32;
+        let s3 = sub_bytes(b3, SBOX) as u32;
+        let s2 = sub_bytes(b2, SBOX) as u32;
+        let s1 = sub_bytes(b1, SBOX) as u32;
+        let s0 = sub_bytes(b0, SBOX) as u32;
 
         s3 << 24 | s2 << 16 | s1 << 8 | s0
     }
@@ -59,16 +60,24 @@ pub mod shared {
     pub fn sub_bytes_state(state: &mut [[u8; 4]; 4]) {
         for i in 0..4 {
             for j in 0..4 {
-                state[i][j] = sub_bytes(state[i][j]);
+                state[i][j] = sub_bytes(state[i][j], SBOX);
             }
         }
     }
 
-    pub fn sub_bytes(input: u8) -> u8 {
+    pub fn inverse_sub_bytes(state: &mut [[u8; 4]; 4]) {
+        for i in 0..4 {
+            for j in 0..4 {
+                state[i][j] = sub_bytes(state[i][j], INVERSE_SBOX);
+            }
+        }
+    }
+
+    pub fn sub_bytes(input: u8, s_box: [[u8; 16]; 16]) -> u8 {
         let x = input >> 4;
         let y = input & 0xF;
 
-        SBOX[x as usize][y as usize]
+        s_box[x as usize][y as usize]
     }
 
     fn rot_word(word: u32) -> u32 {
@@ -90,7 +99,7 @@ pub mod shared {
         );
     }
 
-    pub fn inv_mix_columns(state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
+    pub fn inverse_mix_columns(state: [[u8; 4]; 4]) -> [[u8; 4]; 4] {
         apply_mix_columns(
             state,
             &[
@@ -138,6 +147,43 @@ pub mod shared {
         result
     }
 
+    ///Given a block, it attempts to initialize the state from it.
+    ///State is not directly initialized from the block, but instead its transposed like so:
+    pub fn initialize_state_from_block(block: &[u8]) -> [[u8; 4]; 4] {
+        let mut state = [[0u8; 4]; 4];
+        for i in 0..4 {
+            for j in 0..4 {
+                state[j][i] = block[i * 4 + j];
+            }
+        }
+        state
+    }
+
+    pub fn shift_rows(state: &mut [[u8; 4]; 4]) {
+        let temp = state[1][0];
+        for i in 0..3 {
+            state[1][i] = state[1][i + 1];
+        }
+        state[1][3] = temp;
+    
+        let temp1 = state[2][0];
+        let temp2 = state[2][1];
+        state[2][0] = state[2][2];
+        state[2][1] = state[2][3];
+        state[2][2] = temp1;
+        state[2][3] = temp2;
+    
+        let temp = state[3][3];
+        for i in (1..4).rev() {
+            state[3][i] = state[3][i - 1];
+        }
+        state[3][0] = temp;
+    }
+
+    pub fn add_round_key(state: &mut [[u8; 4]; 4], round_key: [u32; 4]) {
+        
+    }
+
     #[cfg(test)]
     mod test {
 
@@ -156,6 +202,8 @@ pub mod shared {
                 0x603deb10, 0x15ca71be, 0x2b73aef0, 0x857d7781, 0x1f352c07, 0x3b6108d7, 0x2d9810a3,
                 0x0914dff4,
             ];
+
+            println!("expanded key: {:x?}", expanded_keys);
 
             assert_eq!(expanded_keys, expected_output);
         }
@@ -181,7 +229,7 @@ pub mod shared {
         #[test]
         fn test_sub_bytes() {
             let test_byte = 0x0F;
-            let sub_bytes_output = sub_bytes(test_byte);
+            let sub_bytes_output = sub_bytes(test_byte, SBOX);
             let expected_output = 0x76;
 
             assert_eq!(sub_bytes_output, expected_output);
@@ -198,7 +246,7 @@ pub mod shared {
 
         #[test]
         fn test_mix_columns() {
-            let state = [
+            let mut state = [
                 [0x63, 0x53, 0xe0, 0x8c],
                 [0x09, 0x60, 0xe1, 0x04],
                 [0xcd, 0x70, 0xb7, 0x51],
@@ -211,8 +259,8 @@ pub mod shared {
                 [0x1d, 0xb9, 0xf9, 0x1a],
             ];
 
-            let output = mix_columns(state);
-            assert_eq!(expected, output);
+            mix_columns(&mut state);
+            assert_eq!(expected, state);
         }
 
         #[test]
@@ -229,8 +277,28 @@ pub mod shared {
                 [0x61, 0xcb, 0x01, 0x8e],
                 [0xa1, 0xe6, 0xcf, 0x2c],
             ];
-            let output = inv_mix_columns(state);
+            let output = inverse_mix_columns(state);
             assert_eq!(expected, output);
+        }
+
+        #[test]
+        fn test_shift_rows() {
+            let mut input =[
+                [0xd4, 0xe0, 0xb8, 0x1e],
+                [0x27, 0xbf, 0xb4, 0x41],
+                [0x11, 0x98, 0x5d, 0x52],
+                [0xae, 0xf1, 0xe5, 0x30]
+            ];
+            let expected = [
+                [0xd4, 0xe0, 0xb8, 0x1e],
+                [0xbf, 0xb4, 0x41, 0x27],
+                [0x5d, 0x52, 0x11, 0x98],
+                [0x30, 0xae, 0xf1, 0xe5]
+            
+            ];
+            
+            shift_rows(&mut input);            
+            assert_eq!(input, expected);
         }
     }
 }
