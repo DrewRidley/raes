@@ -193,13 +193,14 @@ pub mod shared {
         state[3][3] = temp33;
     }
 
-    pub fn add_round_key(state: &mut [[u8; 4]; 4], round_key: [u32; 4]) {
-        for i in 0..4 {
-            let key_bytes = round_key[i].to_be_bytes();
-            for j in 0..4 {
-                state[j][i] ^= key_bytes[j];
-            }
-        }
+    pub fn add_round_key(mut state: [[u8; 4]; 4], round_key: [u32; 4]) {
+        let mut state_block = flatten_state_to_block(state);
+        let key_block = round_key_to_block(round_key);
+
+        state_block.iter_mut()
+            .zip(key_block.iter())
+            .for_each(|(x1, x2)| *x1 ^= *x2);
+        state = expand_block_to_state(state_block);
     }
 
     pub fn expand_block_to_state(block: [u8; 16]) -> [[u8; 4]; 4] {
@@ -214,7 +215,7 @@ pub mod shared {
         output
     }
 
-    pub fn deflate_state_to_block(state: [[u8; 4]; 4]) -> [u8; 16] {
+    pub fn flatten_state_to_block(state: [[u8; 4]; 4]) -> [u8; 16] {
         let mut output = [0; 16];
         for i in 0..4 {
             for j in 0..4 {
@@ -225,11 +226,13 @@ pub mod shared {
         output
     }
 
+    fn round_key_to_block(round_key: [u32; 4]) -> [u8; 16] {
+        let output = todo!();
+    }
+
     #[cfg(test)]
     mod test {
-
         use crate::{decrypt::decrypt_one_block, encrypt::encrypt_one_block, shared};
-
         use shared::*;
 
         #[test]
@@ -398,9 +401,29 @@ pub mod shared {
                 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee,
                 0xff, 0x00,
             ];
-            let deflated = deflate_state_to_block(input);
+            let deflated = flatten_state_to_block(input);
 
             assert_eq!(expected, deflated);
+        }
+
+        #[test]
+        fn test_add_round_key() {
+            let input: [[u8; 4]; 4] = [
+                [0xb2, 0x82, 0x2d, 0x81],
+                [0xab, 0xe6, 0xfb, 0x27],
+                [0x5f, 0xaf, 0x10, 0x3a],
+                [0x07, 0x8c, 0x00, 0x33]
+            ];
+            let key = [0xae87dff0, 0xff11b68, 0xa68ed5fb, 0x03fc1567];
+            let expected = [
+                [0x1c, 0x05, 0xf2, 0x71],
+                [0xa4, 0x17, 0xe0, 0x4f],
+                [0xf9, 0x21, 0xc5, 0xc1],
+                [0x04, 0x70, 0x15, 0x54]
+            ];
+            add_round_key(input, key);
+
+            assert_eq!(expected, input);
         }
 
         #[test]
@@ -422,7 +445,7 @@ pub mod shared {
 
             // Encrypt and compare
             let encrypted_data = encrypt_one_block(&plaintext, &key);
-            assert_eq!(encrypted_data, expected);
+            assert_eq!(encrypted_data, expected, "{}", format!("\nencrypt : {:x?}, \nexpected: {:x?}", encrypted_data, expected));
         }
 
         #[test]
