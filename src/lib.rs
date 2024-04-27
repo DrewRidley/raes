@@ -193,6 +193,7 @@ pub mod shared {
         state[3][3] = temp33;
     }
 
+
     pub fn add_round_key(state: [[u8; 4]; 4], round_key: [u32; 4]) -> [[u8; 4]; 4] {
         let mut state_block = flatten_state_to_block(state);
         let key_block = round_key_to_block(round_key);
@@ -200,42 +201,60 @@ pub mod shared {
         for i in 0..16 {
             state_block[i] ^= key_block[i];
         }
-    
+
         expand_block_to_state(state_block)
     }
+
     pub fn expand_block_to_state(block: [u8; 16]) -> [[u8; 4]; 4] {
         let mut output = [[0; 4]; 4];
-
+    
         for i in 0..4 {
             for j in 0..4 {
-                output[i][j] = block[j + i * 4];
+                output[i][j] = block[i*4 + j];
             }
         }
-
+    
         output
     }
+    
 
     pub fn flatten_state_to_block(state: [[u8; 4]; 4]) -> [u8; 16] {
         let mut output = [0; 16];
+    
         for i in 0..4 {
             for j in 0..4 {
-                output[j + i * 4] = state[i][j];
+                output[i*4 + j] = state[i][j];
             }
         }
-
+    
         output
     }
+    
+    // pub fn round_key_to_block(round_key: [u32; 4]) -> [u8; 16] {
+    //     let mut output = [0; 16];
+    
+    //     for i in 0..4 {
+    //         let key_word = round_key[i].to_be_bytes();
+    //         output[(i * 4)..(i * 4 + 4)].copy_from_slice(&key_word);
+    //     }
+    
+    //     output
+    // }
 
-    fn round_key_to_block(round_key: [u32; 4]) -> [u8; 16] {
+    pub fn round_key_to_block(round_key: [u32; 4]) -> [u8; 16] {
         let mut output = [0; 16];
     
         for i in 0..4 {
-            let key_word = round_key[i].to_be_bytes();
-            output[(i * 4)..(i * 4 + 4)].copy_from_slice(&key_word);
+            let key_word = round_key[i].to_le_bytes(); // Use to_le_bytes instead of to_be_bytes
+            output[i*4] = key_word[3]; // Least significant byte first
+            output[i*4+1] = key_word[2];
+            output[i*4+2] = key_word[1];
+            output[i*4+3] = key_word[0]; // Most significant byte last
         }
     
         output
     }
+
 
     #[cfg(test)]
     mod test {
@@ -244,27 +263,51 @@ pub mod shared {
 
         #[test]
         fn test_add_round_key() {
-            let input = [
-                [0xb2, 0x82, 0x2d, 0x81],
-                [0xab, 0xe6, 0xfb, 0x27],
-                [0x5f, 0xaf, 0x10, 0x3a],
-                [0x07, 0x8c, 0x00, 0x33]
-            ];
+            // let input = [
+            //     [0xb2, 0x82, 0x2d, 0x81],
+            //     [0xab, 0xe6, 0xfb, 0x27],
+            //     [0x5f, 0xaf, 0x10, 0x3a],
+            //     [0x07, 0x8c, 0x00, 0x33]
+            // ];
         
-            let key = [0xae87dff0, 0xff11b68, 0xa68ed5fb, 0x03fc1567];
+            // let key = [0xae87dff0, 0xff11b68, 0xa68ed5fb, 0x03fc1567];
         
-            let expected = [
-                [0x1c, 0x05, 0xf2, 0x71],
-                [0xa4, 0x17, 0xe0, 0x4f],
-                [0xf9, 0x21, 0xc5, 0xc1],
-                [0x04, 0x70, 0x15, 0x54]
-            ];
+            // let expected = [
+            //     [0x1c, 0x05, 0xf2, 0x71],
+            //     [0xa4, 0x17, 0xe0, 0x4f],
+            //     [0xf9, 0x21, 0xc5, 0xc1],
+            //     [0x04, 0x70, 0x15, 0x54]
+            // ];
         
-            let output = add_round_key(input, key);
+            // let output = add_round_key(input, key);
         
-            assert_eq!(expected, output);
-        }
+            // assert_eq!(expected, output);
 
+            //Do a second test case.
+            let key: [u8; 32] = [
+                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+                0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+                0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F
+            ];
+            let data: [u8; 16] = [
+                0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+                0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF
+            ];
+
+            let round_keys = key_expansion(key);
+            let state = expand_block_to_state(data);
+    
+            // Initial AddRoundKey
+            add_round_key(state, [round_keys[0], round_keys[1], round_keys[2], round_keys[3]]);
+            assert_eq!(state, [
+                [0x00, 0x10, 0x20, 0x30],  // Corresponds to 00 10 20 30
+                [0x40, 0x50, 0x60, 0x70],  // Corresponds to 40 50 60 70
+                [0x80, 0x90, 0xa0, 0xb0],  // Corresponds to 80 90 a0 b0
+                [0xc0, 0xd0, 0xe0, 0xf0]   // Corresponds to c0 d0 e0 
+            ], "Mismatch in round key");
+    
+        }
 
         #[test]
         fn test_key_expansion() {

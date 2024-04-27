@@ -72,7 +72,7 @@ mod test {
         let mut state = expand_block_to_state(data);
 
         // Initial AddRoundKey
-        add_round_key(state, [round_keys[0], round_keys[1], round_keys[2], round_keys[3]]);
+        state = add_round_key(state, [round_keys[0], round_keys[1], round_keys[2], round_keys[3]]);
         assert_eq!(state, [
             [0x00, 0x10, 0x20, 0x30],  // Corresponds to 00 10 20 30
             [0x40, 0x50, 0x60, 0x70],  // Corresponds to 40 50 60 70
