@@ -9,7 +9,7 @@ pub fn encrypt_block(data: &[u8; 16], key: &[u8; 32]) -> [u8; 16] {
     let mut state = expand_block_to_state(output);
 
     // Perform the encryption rounds
-    //perform_rounds(&mut state, &round_keys);
+    perform_rounds(&mut state, &round_keys);
     output = flatten_state_to_block(state);
 
     return output;
