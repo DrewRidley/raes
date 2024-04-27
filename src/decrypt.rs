@@ -1,7 +1,7 @@
 // This file holds the code to decrypt using our implementation of the AES algorithm.
 
 use crate::shared::{
-    add_round_key, deflate_state_to_block, expand_block_to_state, inverse_mix_columns, inverse_shift_rows, inverse_sub_bytes, key_expansion
+    add_round_key, flatten_state_to_block, expand_block_to_state, inverse_mix_columns, inverse_shift_rows, inverse_sub_bytes, key_expansion
 };
 
 fn pad_block(block: &mut Vec<u8>) {
@@ -19,7 +19,7 @@ pub fn decrypt_one_block(data: &[u8; 16], key: &[u8; 32]) -> [u8; 16] {
 
     // Perform the decryption rounds
     perform_inverse_rounds(&mut state, &round_key);
-    output = deflate_state_to_block(state);
+    output = flatten_state_to_block(state);
 
     return output;
 }
@@ -27,7 +27,7 @@ pub fn decrypt_one_block(data: &[u8; 16], key: &[u8; 32]) -> [u8; 16] {
 fn perform_inverse_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
     // First, apply the final round key (which doesn't involve mix_columns)
     add_round_key(
-        state,
+        *state,
         [
             round_keys[4 * 14],
             round_keys[4 * 14 + 1],
@@ -42,7 +42,7 @@ fn perform_inverse_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
     // Proceed with the remaining rounds
     for i in (1..14).rev() {
         add_round_key(
-            state,
+            *state,
             [
                 round_keys[4 * i],
                 round_keys[4 * i + 1],
@@ -57,7 +57,7 @@ fn perform_inverse_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
 
     // Apply the initial round key last
     add_round_key(
-        state,
+        *state,
         [round_keys[0], round_keys[1], round_keys[2], round_keys[3]],
     );
 }
