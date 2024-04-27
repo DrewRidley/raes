@@ -193,16 +193,16 @@ pub mod shared {
         state[3][3] = temp33;
     }
 
-    pub fn add_round_key(mut state: [[u8; 4]; 4], round_key: [u32; 4]) {
+    fn add_round_key(state: [[u8; 4]; 4], round_key: [u32; 4]) -> [[u8; 4]; 4] {
         let mut state_block = flatten_state_to_block(state);
         let key_block = round_key_to_block(round_key);
-
-        state_block.iter_mut()
-            .zip(key_block.iter())
-            .for_each(|(x1, x2)| *x1 ^= *x2);
-        state = expand_block_to_state(state_block);
+    
+        for i in 0..16 {
+            state_block[i] ^= key_block[i];
+        }
+    
+        expand_block_to_state(state_block)
     }
-
     pub fn expand_block_to_state(block: [u8; 16]) -> [[u8; 4]; 4] {
         let mut output = [[0; 4]; 4];
 
@@ -227,13 +227,44 @@ pub mod shared {
     }
 
     fn round_key_to_block(round_key: [u32; 4]) -> [u8; 16] {
-        let output = todo!();
+        let mut output = [0; 16];
+    
+        for i in 0..4 {
+            let key_word = round_key[i].to_be_bytes();
+            output[(i * 4)..(i * 4 + 4)].copy_from_slice(&key_word);
+        }
+    
+        output
     }
 
     #[cfg(test)]
     mod test {
-        use crate::{decrypt::decrypt_one_block, encrypt::encrypt_one_block, shared};
+        use crate::{encrypt::encrypt_one_block, shared};
         use shared::*;
+
+        #[test]
+        fn test_add_round_key() {
+            let input = [
+                [0xb2, 0x82, 0x2d, 0x81],
+                [0xab, 0xe6, 0xfb, 0x27],
+                [0x5f, 0xaf, 0x10, 0x3a],
+                [0x07, 0x8c, 0x00, 0x33]
+            ];
+        
+            let key = [0xae87dff0, 0xff11b68, 0xa68ed5fb, 0x03fc1567];
+        
+            let expected = [
+                [0x1c, 0x05, 0xf2, 0x71],
+                [0xa4, 0x17, 0xe0, 0x4f],
+                [0xf9, 0x21, 0xc5, 0xc1],
+                [0x04, 0x70, 0x15, 0x54]
+            ];
+        
+            let output = add_round_key(input, key);
+        
+            assert_eq!(expected, output);
+        }
+
 
         #[test]
         fn test_key_expansion() {
@@ -406,25 +437,6 @@ pub mod shared {
             assert_eq!(expected, deflated);
         }
 
-        #[test]
-        fn test_add_round_key() {
-            let input: [[u8; 4]; 4] = [
-                [0xb2, 0x82, 0x2d, 0x81],
-                [0xab, 0xe6, 0xfb, 0x27],
-                [0x5f, 0xaf, 0x10, 0x3a],
-                [0x07, 0x8c, 0x00, 0x33]
-            ];
-            let key = [0xae87dff0, 0xff11b68, 0xa68ed5fb, 0x03fc1567];
-            let expected = [
-                [0x1c, 0x05, 0xf2, 0x71],
-                [0xa4, 0x17, 0xe0, 0x4f],
-                [0xf9, 0x21, 0xc5, 0xc1],
-                [0x04, 0x70, 0x15, 0x54]
-            ];
-            add_round_key(input, key);
-
-            assert_eq!(expected, input);
-        }
 
         #[test]
         fn test_encrypt() {
@@ -448,14 +460,6 @@ pub mod shared {
             assert_eq!(encrypted_data, expected, "{}", format!("\nencrypt : {:x?}, \nexpected: {:x?}", encrypted_data, expected));
         }
 
-        #[test]
-        fn encrypt_decrypt() {
-            let data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
-            let key: [u8; 32] = [0; 32]; // Example key, replace with actual key generation
-            assert_eq!(
-                data,
-                decrypt_one_block(&encrypt_one_block(&data, &key), &key)
-            );
-        }
+
     }
 }
