@@ -6,17 +6,14 @@ pub mod shared {
     use crate::constant::INVERSE_SBOX;
     pub use crate::constant::{ROUND_CONSTANTS, SBOX};
 
-
     pub fn key_expansion(key: [u8; 32]) -> [u32; 60] {
-        //AES256.
         const NK: usize = 8;
         const NR: usize = 14;
-        
+
         let mut w: [u32; 60] = [0; 60];
         let mut temp;
+        let mut i = 0;
 
-
-        let mut i: usize = 0;
         while i <= NK - 1 {
             w[i] = u8s_to_u32([key[4 * i], key[4 * i + 1], key[4 * i + 2], key[4 * i + 3]]);
             i += 1;
@@ -28,8 +25,7 @@ pub mod shared {
             temp = w[i - 1];
             if i % NK == 0 {
                 temp = sub_word(rot_word(temp)) ^ ROUND_CONSTANTS[(i / NK) - 1]
-            }
-            else if NK > 6 && i % NK == 4 {
+            } else if NK > 6 && i % NK == 4 {
                 temp = sub_word(temp)
             }
 
@@ -151,7 +147,6 @@ pub mod shared {
         result
     }
 
-
     pub fn shift_rows(state: &mut [[u8; 4]; 4]) {
         let temp = state[1][0];
         for i in 0..3 {
@@ -202,17 +197,40 @@ pub mod shared {
         for i in 0..4 {
             let key_bytes = round_key[i].to_be_bytes();
             for j in 0..4 {
-                state[j][i] ^= key_bytes[j];  
+                state[j][i] ^= key_bytes[j];
             }
         }
+    }
+
+    pub fn expand_block_to_state(block: [u8; 16]) -> [[u8; 4]; 4] {
+        let mut output = [[0; 4]; 4];
+
+        for i in 0..4 {
+            for j in 0..4 {
+                output[i][j] = block[j + i * 4];
+            }
+        }
+
+        output
+    }
+
+    pub fn deflate_state_to_block(state: [[u8; 4]; 4]) -> [u8; 16] {
+        let mut output = [0; 16];
+        for i in 0..4 {
+            for j in 0..4 {
+                output[j + i * 4] = state[i][j];
+            }
+        }
+
+        output
     }
 
     #[cfg(test)]
     mod test {
 
-        use crate::{decrypt::decrypt_one_block, encrypt::encrypt_one_block};
+        use crate::{decrypt::decrypt_one_block, encrypt::encrypt_one_block, shared};
 
-        use super::*;
+        use shared::*;
 
         #[test]
         fn test_key_expansion() {
@@ -224,8 +242,14 @@ pub mod shared {
             let expanded_keys = key_expansion(test_key);
 
             let expected_output = [
-                0x603deb10, 0x15ca71be, 0x2b73aef0, 0x857d7781, 0x1f352c07, 0x3b6108d7, 0x2d9810a3, 0x0914dff4, 0x9ba35411, 0x8e6925af, 0xa51a8b5f, 0x2067fcde, 0xa8b09c1a, 0x93d194cd, 0xbe49846e, 0xb75d5b9a, 0xd59aecb8, 0x5bf3c917, 0xfee94248, 0xde8ebe96, 0xb5a9328a, 0x2678a647, 0x98312229, 0x2f6c79b3, 0x812c81ad, 0xdadf48ba, 0x24360af2, 0xfab8b464,
-                0x98c5bfc9, 0xbebd198e, 0x268c3ba7, 0x09e04214, 0x68007bac, 0xb2df3316, 0x96e939e4, 0x6c518d80, 0xc814e204, 0x76a9fb8a, 0x5025c02d, 0x59c58239, 0xde136967, 0x6ccc5a71, 0xfa256395, 0x9674ee15, 0x5886ca5d, 0x2e2f31d7, 0x7e0af1fa, 0x27cf73c3, 0x749c47ab, 0x18501dda, 0xe2757e4f, 0x7401905a, 0xcafaaae3, 0xe4d59b34, 0x9adf6ace, 0xbd10190d,
+                0x603deb10, 0x15ca71be, 0x2b73aef0, 0x857d7781, 0x1f352c07, 0x3b6108d7, 0x2d9810a3,
+                0x0914dff4, 0x9ba35411, 0x8e6925af, 0xa51a8b5f, 0x2067fcde, 0xa8b09c1a, 0x93d194cd,
+                0xbe49846e, 0xb75d5b9a, 0xd59aecb8, 0x5bf3c917, 0xfee94248, 0xde8ebe96, 0xb5a9328a,
+                0x2678a647, 0x98312229, 0x2f6c79b3, 0x812c81ad, 0xdadf48ba, 0x24360af2, 0xfab8b464,
+                0x98c5bfc9, 0xbebd198e, 0x268c3ba7, 0x09e04214, 0x68007bac, 0xb2df3316, 0x96e939e4,
+                0x6c518d80, 0xc814e204, 0x76a9fb8a, 0x5025c02d, 0x59c58239, 0xde136967, 0x6ccc5a71,
+                0xfa256395, 0x9674ee15, 0x5886ca5d, 0x2e2f31d7, 0x7e0af1fa, 0x27cf73c3, 0x749c47ab,
+                0x18501dda, 0xe2757e4f, 0x7401905a, 0xcafaaae3, 0xe4d59b34, 0x9adf6ace, 0xbd10190d,
                 0xfe4890d1, 0xe6188d0b, 0x046df344, 0x706c631e,
             ];
 
@@ -344,38 +368,71 @@ pub mod shared {
         }
 
         #[test]
+        fn test_expand_block_to_state() {
+            let input: [u8; 16] = [
+                0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee,
+                0xff, 0x00,
+            ];
+            let expected: [[u8; 4]; 4] = [
+                [0x11, 0x22, 0x33, 0x44],
+                [0x55, 0x66, 0x77, 0x88],
+                [0x99, 0xaa, 0xbb, 0xcc],
+                [0xdd, 0xee, 0xff, 0x00],
+            ];
+
+            let output = expand_block_to_state(input);
+
+            assert_eq!(output, expected);
+        }
+
+        #[test]
+        fn test_deflate_state_to_block() {
+            let input: [[u8; 4]; 4] = [
+                [0x11, 0x22, 0x33, 0x44],
+                [0x55, 0x66, 0x77, 0x88],
+                [0x99, 0xaa, 0xbb, 0xcc],
+                [0xdd, 0xee, 0xff, 0x00],
+            ];
+
+            let expected: [u8; 16] = [
+                0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee,
+                0xff, 0x00,
+            ];
+            let deflated = deflate_state_to_block(input);
+
+            assert_eq!(expected, deflated);
+        }
+
+        #[test]
         fn test_encrypt() {
             // Define the inputs as strings for easier handling
-            let plaintext_hex = "00112233445566778899aabbccddeeff";
-            let key_hex = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
-            let expected_hex = "8ea2b7ca516745bfeafc49904b496089";
-
-            // Decode the hex strings and convert to fixed-size arrays
-            let plaintext: [u8; 16] = hex::decode(plaintext_hex)
-                .expect("Failed to decode plaintext")
-                .try_into()
-                .expect("Incorrect size for plaintext");
-
-            let key: [u8; 32] = hex::decode(key_hex)
-                .expect("Failed to decode key hex.")
-                .try_into()
-                .expect("Incorrect size for key");
-
-            let expected: [u8; 16] = hex::decode(expected_hex)
-                .expect("Failed to decode expected ciphertext")
-                .try_into()
-                .expect("Incorrect size for expected ciphertext");
+            let plaintext = [
+                0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
+                0xee, 0xff,
+            ];
+            let expected = [
+                0x8e, 0xa2, 0xb7, 0xca, 0x51, 0x67, 0x45, 0xbf, 0xea, 0xfc, 0x49, 0x90, 0x4b, 0x49,
+                0x60, 0x89,
+            ];
+            let key = [
+                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
+                0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
+                0x1c, 0x1d, 0x1e, 0x1f,
+            ];
 
             // Encrypt and compare
             let encrypted_data = encrypt_one_block(&plaintext, &key);
-            assert_eq!(encrypted_data, expected, "Encryption did not produce the expected output");
+            assert_eq!(encrypted_data, expected);
         }
 
-       #[test]
-       fn encrypt_decrypt() {
-           let data: [u8; 16] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
-           let key: [u8; 32] = [0; 32];  // Example key, replace with actual key generation
-           assert_eq!(data, decrypt_one_block(&encrypt_one_block(&data, &key), &key));
-       }
+        #[test]
+        fn encrypt_decrypt() {
+            let data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+            let key: [u8; 32] = [0; 32]; // Example key, replace with actual key generation
+            assert_eq!(
+                data,
+                decrypt_one_block(&encrypt_one_block(&data, &key), &key)
+            );
+        }
     }
 }
