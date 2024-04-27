@@ -148,24 +148,28 @@ pub mod shared {
     }
 
     pub fn shift_rows(state: &mut [[u8; 4]; 4]) {
-        let temp = state[1][0];
-        for i in 0..3 {
-            state[1][i] = state[1][i + 1];
-        }
-        state[1][3] = temp;
-
-        let temp1 = state[2][0];
-        let temp2 = state[2][1];
-        state[2][0] = state[2][2];
-        state[2][1] = state[2][3];
-        state[2][2] = temp1;
-        state[2][3] = temp2;
-
-        let temp = state[3][3];
-        for i in (1..4).rev() {
-            state[3][i] = state[3][i - 1];
-        }
-        state[3][0] = temp;
+        let temp13 = state[0][3];
+        let temp22 = state[0][2];
+        let temp23 = state[1][3];
+        let temp31 = state[0][1];
+        let temp32 = state[1][2];
+        let temp33 = state[2][3];
+    
+        state[0][1] = state[1][1];
+        state[0][2] = state[2][2];
+        state[0][3] = state[3][3];
+        
+        state[1][1] = state[2][1];
+        state[1][2] = state[3][2];
+        state[1][3] = temp13;
+        
+        state[2][1] = state[3][1];
+        state[2][2] = temp22;
+        state[2][3] = temp23;
+        
+        state[3][1] = temp31;
+        state[3][2] = temp32;
+        state[3][3] = temp33;
     }
 
     pub fn inverse_shift_rows(state: &mut [[u8; 4]; 4]) {
@@ -241,30 +245,6 @@ pub mod shared {
     mod test {
         use crate::{decrypt::{self, decrypt_block}, encrypt::encrypt_block, shared};
         use shared::*;
-
-        #[test]
-        fn test_add_round_key() {
-            let input = [
-                [0xb2, 0x82, 0x2d, 0x81],
-                [0xab, 0xe6, 0xfb, 0x27],
-                [0x5f, 0xaf, 0x10, 0x3a],
-                [0x07, 0x8c, 0x00, 0x33]
-            ];
-        
-            let key = [0xae87dff0, 0xff11b68, 0xa68ed5fb, 0x03fc1567];
-        
-            let expected = [
-                [0x1c, 0x05, 0xf2, 0x71],
-                [0xa4, 0x17, 0xe0, 0x4f],
-                [0xf9, 0x21, 0xc5, 0xc1],
-                [0x04, 0x70, 0x15, 0x54]
-            ];
-        
-            let output = add_round_key(input, key);
-        
-            assert_eq!(expected, output);
-        }
-
 
         #[test]
         fn test_key_expansion() {
@@ -366,16 +346,16 @@ pub mod shared {
         #[test]
         fn test_shift_rows() {
             let mut input = [
-                [0xd4, 0xe0, 0xb8, 0x1e],
-                [0x27, 0xbf, 0xb4, 0x41],
-                [0x11, 0x98, 0x5d, 0x52],
-                [0xae, 0xf1, 0xe5, 0x30],
+                [0x63, 0xca, 0xb7, 0x04],
+                [0x09, 0x53, 0xd0, 0x51],
+                [0xcd, 0x60, 0xe0, 0xe7],
+                [0xba, 0x70, 0xe1, 0x8c]
             ];
             let expected = [
-                [0xd4, 0xe0, 0xb8, 0x1e],
-                [0xbf, 0xb4, 0x41, 0x27],
-                [0x5d, 0x52, 0x11, 0x98],
-                [0x30, 0xae, 0xf1, 0xe5],
+                [0x63, 0x53, 0xe0, 0x8c],
+                [0x09, 0x60, 0xe1, 0x04],
+                [0xcd, 0x70, 0xb7, 0x51],
+                [0xba, 0xca, 0xd0, 0xe7]
             ];
 
             shift_rows(&mut input);
@@ -435,6 +415,29 @@ pub mod shared {
             let deflated = flatten_state_to_block(input);
 
             assert_eq!(expected, deflated);
+        }
+
+        #[test]
+        fn test_add_round_key() {
+            let input = [
+                [0xb2, 0x82, 0x2d, 0x81],
+                [0xab, 0xe6, 0xfb, 0x27],
+                [0x5f, 0xaf, 0x10, 0x3a],
+                [0x07, 0x8c, 0x00, 0x33]
+            ];
+        
+            let key = [0xae87dff0, 0xff11b68, 0xa68ed5fb, 0x03fc1567];
+        
+            let expected = [
+                [0x1c, 0x05, 0xf2, 0x71],
+                [0xa4, 0x17, 0xe0, 0x4f],
+                [0xf9, 0x21, 0xc5, 0xc1],
+                [0x04, 0x70, 0x15, 0x54]
+            ];
+        
+            let output = add_round_key(input, key);
+        
+            assert_eq!(expected, output);
         }
 
 
