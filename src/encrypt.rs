@@ -108,7 +108,7 @@ mod test {
         ], "Mismatch after MixColumns");
         
         // AddRoundKey for the second round key
-        add_round_key(state, [
+        state = add_round_key(state, [
             round_keys[4],
             round_keys[5],
             round_keys[6],
