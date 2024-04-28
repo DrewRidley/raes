@@ -21,12 +21,12 @@ fn perform_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
         [round_keys[0], round_keys[1], round_keys[2], round_keys[3]],
     );
 
-    for i in 1..14 {
+    for i in 1..13 {
         // Do 14 rounds for AES-256
         sub_bytes_state(state);
         shift_rows(state);
         mix_columns(state); // Not applied in the last round
-        add_round_key(
+        *state = add_round_key(
             *state,
             [
                 round_keys[4 * i],
