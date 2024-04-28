@@ -1,5 +1,7 @@
 // This file holds the code to decrypt using our implementation of the AES algorithm.
 
+use std::{io::{self, Read, Write}, usize};
+
 use crate::shared::{
     add_round_key, expand_block_to_state, flatten_state_to_block, inverse_mix_columns,
     inverse_shift_rows, inverse_sub_bytes, key_expansion,
@@ -21,8 +23,49 @@ pub fn decrypt_block(data: &[u8; 16], key: &[u8; 32]) -> [u8; 16] {
     return output;
 }
 
+const BLOCK_SIZE: usize = 16;
+
+/// Decrypts data from the input stream and writes to the output stream.
+pub fn decrypt_stream<R: Read, W: Write>(mut reader: R, mut writer: W, key: &[u8; 32]) -> io::Result<()> {
+    let mut buffer = [0u8; BLOCK_SIZE];
+    let mut last_block = Vec::new();
+
+    loop {
+        let read_size = reader.read(&mut buffer)?;
+        if read_size == 0 { break; }
+
+        if read_size < BLOCK_SIZE {
+            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "Corrupted stream"));
+        }
+
+        let decrypted = decrypt_block(&buffer, key);
+
+        if !last_block.is_empty() {
+            writer.write_all(&last_block)?;
+        }
+
+        last_block = decrypted.to_vec();
+    }
+
+    // Check and remove padding from the last decrypted block
+    if !last_block.is_empty() {
+        let pad_value = last_block[BLOCK_SIZE - 1] as usize;
+        if pad_value == 0 || pad_value > BLOCK_SIZE {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid padding"));
+        }
+        let pad_slice = &last_block[(BLOCK_SIZE - pad_value)..BLOCK_SIZE];
+        if !pad_slice.iter().all(|&x| x as usize == pad_value) {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid padding"));
+        }
+        last_block.truncate(BLOCK_SIZE - pad_value);
+        writer.write_all(&last_block)?;
+    }
+
+    Ok(())
+}
+
+
 fn perform_inverse_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
-    // Start with the final round key (after all rounds)
     *state = add_round_key(
         *state,
         [
@@ -33,7 +76,6 @@ fn perform_inverse_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
         ],
     );
 
-    // Inverse final round (no mix columns)
     inverse_sub_bytes(state);
     inverse_shift_rows(state);
 
@@ -67,7 +109,7 @@ mod tests {
 
     #[test]
     fn test_decrypt_first_round() {
-        // Initialize key and data
+
         let key: [u8; 32] = [
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
             0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
@@ -83,7 +125,6 @@ mod tests {
         let round_keys = key_expansion(key);
         let mut state = expand_block_to_state(encrypted_data);
     
-        // AddRoundKey for the second round key (reverse order)
         state = add_round_key(
             state,
             [round_keys[4], round_keys[5], round_keys[6], round_keys[7]],

@@ -1,3 +1,5 @@
+use std::io::{self, Read, Write};
+
 use crate::shared::{
     add_round_key, expand_block_to_state, flatten_state_to_block, key_expansion, mix_columns,
     shift_rows, sub_bytes_state,
@@ -17,6 +19,38 @@ pub fn encrypt_block(data: &[u8; 16], key: &[u8; 32]) -> [u8; 16] {
 
     return output;
 }
+
+
+const BLOCK_SIZE: usize = 16;
+
+/// Encrypts data from the input stream and writes to the output stream.
+pub fn encrypt_stream<R: Read, W: Write>(mut reader: R, mut writer: W, key: &[u8; 32]) -> io::Result<()> {
+    let mut buffer = [0u8; BLOCK_SIZE];
+    let mut read_size = 0;
+
+    // Encrypt full blocks
+    while {
+        read_size = reader.read(&mut buffer)?;
+        read_size == BLOCK_SIZE
+    } {
+        let encrypted = encrypt_block(&buffer, key);
+        writer.write_all(&encrypted)?;
+    }
+
+    // Handle padding for the last block
+    if read_size > 0 {
+        // PKCS7 padding
+        let pad_value = (BLOCK_SIZE - read_size) as u8;
+        for i in read_size..BLOCK_SIZE {
+            buffer[i] = pad_value;
+        }
+        let encrypted = encrypt_block(&buffer, key);
+        writer.write_all(&encrypted)?;
+    }
+
+    Ok(())
+}
+
 
 fn perform_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
 

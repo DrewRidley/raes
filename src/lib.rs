@@ -252,7 +252,7 @@ pub mod shared {
     #[cfg(test)]
     mod test {
         use crate::{
-            decrypt::{self, decrypt_block},
+            decrypt::{self, decrypt_block, decrypt_stream},
             encrypt::encrypt_block,
             shared,
         };
@@ -527,7 +527,39 @@ pub mod shared {
             assert_eq!(plaintext, decrypted);
         }
 
-
+        #[test]
+        fn stream_encrypt_one_block() {
+            let key: [u8; 32] = [
+                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
+                0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B,
+                0x1C, 0x1D, 0x1E, 0x1F,
+            ];
+            let plaintext: [u8; 16] = [
+                0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD,
+                0xEE, 0xFF,
+            ];
+            let expected_ciphertext: [u8; 16] = [
+                0x8e, 0xa2, 0xb7, 0xca, 0x51, 0x67, 0x45, 0xbf, 0xea, 0xfc, 0x49, 0x90, 0x4b, 0x49,
+                0x60, 0x89,
+            ];
+        
+            let mut input_cursor = Cursor::new(plaintext.to_vec());
+            let mut encrypted_output = Cursor::new(Vec::new());
+            
+            encrypt_stream(&mut input_cursor, &mut encrypted_output, &key).expect("Encryption failed");
+        
+            let encrypted_data = encrypted_output.into_inner();
+            assert_eq!(encrypted_data.as_slice(), expected_ciphertext, "Encrypted data does not match expected");
+        
+            let mut encrypted_input_cursor = Cursor::new(encrypted_data);
+            let mut decrypted_output = Cursor::new(Vec::new());
+            
+            decrypt_stream(&mut encrypted_input_cursor, &mut decrypted_output, &key).expect("Decryption failed");
+        
+            let decrypted_data = decrypted_output.into_inner();
+            assert_eq!(decrypted_data.as_slice(), plaintext, "Decrypted data does not match the original plaintext");
+        }        
+    
 
     }
 
