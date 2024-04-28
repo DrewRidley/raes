@@ -1,28 +1,17 @@
-use structopt::StructOpt;
+use raes::shared::{decrypt_stream, encrypt_stream};
 use rand::{distributions::Alphanumeric, Rng};
+use std::convert::TryInto;
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter};
 use std::path::Path;
-use std::convert::TryInto;
+use structopt::StructOpt;
 
 /// Generate a random key for encryption.
 fn generate_key() -> Vec<u8> {
     rand::thread_rng()
         .sample_iter(&Alphanumeric)
-        .take(32)  // Adjust the size as needed for the encryption algorithm
+        .take(32) // Adjust the size as needed for the encryption algorithm
         .collect()
-}
-
-/// Dummy function to simulate the encryption process
-fn encrypt_stream(reader: &mut BufReader<File>, writer: &mut BufWriter<File>, key: &[u8]) -> io::Result<()> {
-    // Implement encryption logic here
-    Ok(())
-}
-
-/// Dummy function to simulate the decryption process
-fn decrypt_stream(reader: &mut BufReader<File>, writer: &mut BufWriter<File>, key: &[u8]) -> io::Result<()> {
-    // Implement decryption logic here
-    Ok(())
 }
 
 /// Encrypts the input file and writes the encrypted data and key to separate files.
@@ -33,7 +22,11 @@ fn encrypt(input_path: &Path, output_path: &Path, key_path: &Path) -> io::Result
     let mut reader = BufReader::new(input_file);
     let mut writer = BufWriter::new(output_file);
 
-    encrypt_stream(&mut reader, &mut writer, &key.as_slice())?;
+    encrypt_stream(
+        &mut reader,
+        &mut writer,
+        &key.as_slice().try_into().unwrap(),
+    )?;
 
     // Write the key to a file
     fs::write(key_path, &key.as_slice())?;
@@ -49,7 +42,11 @@ fn decrypt(input_path: &Path, output_path: &Path, key_path: &Path) -> io::Result
     let mut reader = BufReader::new(input_file);
     let mut writer = BufWriter::new(output_file);
 
-    decrypt_stream(&mut reader, &mut writer, &key.as_slice())?;
+    decrypt_stream(
+        &mut reader,
+        &mut writer,
+        &key.as_slice().try_into().unwrap(),
+    )?;
 
     Ok(())
 }
@@ -85,7 +82,7 @@ fn main() {
             if let Err(e) = encrypt(input_path, output_path, key_path) {
                 eprintln!("Error during encryption: {}", e);
             }
-        },
+        }
         (None, Some(input)) if opt.output.is_some() && opt.key_file.is_some() => {
             let input_path = Path::new(input);
             let output_path = Path::new(opt.output.as_ref().unwrap());
@@ -93,10 +90,10 @@ fn main() {
             if let Err(e) = decrypt(input_path, output_path, key_path) {
                 eprintln!("Error during decryption: {}", e);
             }
-        },
+        }
         (Some(_), Some(_)) => {
             eprintln!("Please specify only one operation at a time: either encrypt or decrypt.");
-        },
+        }
         _ => {
             eprintln!("Insufficient arguments. Please specify an operation along with the input, output, and key file paths.");
         }

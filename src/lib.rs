@@ -7,7 +7,7 @@ pub mod shared {
 
     use crate::constant::INVERSE_SBOX;
     use crate::constant::{ROUND_CONSTANTS, SBOX};
-    pub use crate::{encrypt::encrypt_stream , decrypt::decrypt_stream};
+    pub use crate::{decrypt::decrypt_stream, encrypt::encrypt_stream};
 
     pub fn key_expansion(key: [u8; 32]) -> [u32; 60] {
         const NK: usize = 8;
@@ -46,9 +46,9 @@ pub mod shared {
         let mut w: [u32; 60] = [0; 60];
         let mut dw: [u32; 60] = [0; 60];
         let mut temp;
-        let mut i = 0;    
+        let mut i = 0;
 
-        while i <= NK-1 {
+        while i <= NK - 1 {
             w[i] = u8s_to_u32([key[4 * i], key[4 * i + 1], key[4 * i + 2], key[4 * i + 3]]);
             dw[i] = w[i];
             i += 1;
@@ -60,23 +60,23 @@ pub mod shared {
             temp = w[i - 1];
             if i % NK == 0 {
                 temp = sub_word(rot_word(temp)) ^ ROUND_CONSTANTS[(i / NK) - 1];
-            }
-            else if NK > 6 && i % NK == 4 {
+            } else if NK > 6 && i % NK == 4 {
                 temp = sub_word(temp);
             }
             w[i] = w[i - NK] ^ temp;
             dw[i] = w[i];
             i += 1;
         }
-        for round in 1..=NR-1 {
-            i = 4*round;
-            let mut t1 = expand_block_to_state(round_key_to_block([dw[i], dw[i+1], dw[i+2], dw[i+3]]));
+        for round in 1..=NR - 1 {
+            i = 4 * round;
+            let mut t1 =
+                expand_block_to_state(round_key_to_block([dw[i], dw[i + 1], dw[i + 2], dw[i + 3]]));
             inverse_mix_columns(&mut t1);
             let t2 = block_to_round_key(flatten_state_to_block(t1));
             dw[i] = t2[0];
-            dw[i+1] = t2[1];
-            dw[i+2] = t2[2];
-            dw[i+3] = t2[3];
+            dw[i + 1] = t2[1];
+            dw[i + 2] = t2[2];
+            dw[i + 3] = t2[3];
         }
         dw
     }
@@ -293,27 +293,26 @@ pub mod shared {
 
     pub fn block_to_round_key(block: [u8; 16]) -> [u32; 4] {
         let mut output = [0; 4];
-    
+
         for i in 0..4 {
             output[i] = u32::from_le_bytes([
                 block[i * 4 + 3], // Most significant byte last
                 block[i * 4 + 2],
                 block[i * 4 + 1],
-                block[i * 4],     // Least significant byte first
+                block[i * 4], // Least significant byte first
             ]);
         }
-    
+
         output
     }
-    
 
     #[cfg(test)]
     mod test {
+        use crate::shared::*;
         use crate::{
             decrypt::{self, decrypt_block, decrypt_stream},
             encrypt::encrypt_block,
         };
-        use crate::shared::*;
 
         #[test]
         fn test_add_round_key() {
@@ -393,9 +392,7 @@ pub mod shared {
         }
 
         #[test]
-        fn test_inverse_key_expansion() {
-
-        }
+        fn test_inverse_key_expansion() {}
 
         #[test]
         fn test_sub_word() {
@@ -578,25 +575,32 @@ pub mod shared {
                 0x8e, 0xa2, 0xb7, 0xca, 0x51, 0x67, 0x45, 0xbf, 0xea, 0xfc, 0x49, 0x90, 0x4b, 0x49,
                 0x60, 0x89,
             ];
-        
+
             let mut input_cursor = Cursor::new(plaintext.to_vec());
             let mut encrypted_output = Cursor::new(Vec::new());
-            
-            encrypt_stream(&mut input_cursor, &mut encrypted_output, &key).expect("Encryption failed");
-        
+
+            encrypt_stream(&mut input_cursor, &mut encrypted_output, &key)
+                .expect("Encryption failed");
+
             let encrypted_data = encrypted_output.into_inner();
-            assert_eq!(encrypted_data.as_slice(), expected_ciphertext, "Encrypted data does not match expected");
-        
+            assert_eq!(
+                encrypted_data.as_slice(),
+                expected_ciphertext,
+                "Encrypted data does not match expected"
+            );
+
             let mut encrypted_input_cursor = Cursor::new(encrypted_data);
             let mut decrypted_output = Cursor::new(Vec::new());
-            
-            decrypt_stream(&mut encrypted_input_cursor, &mut decrypted_output, &key).expect("Decryption failed");
-        
+
+            decrypt_stream(&mut encrypted_input_cursor, &mut decrypted_output, &key)
+                .expect("Decryption failed");
+
             let decrypted_data = decrypted_output.into_inner();
-            assert_eq!(decrypted_data.as_slice(), plaintext, "Decrypted data does not match the original plaintext");
-        }        
-    
-
+            assert_eq!(
+                decrypted_data.as_slice(),
+                plaintext,
+                "Decrypted data does not match the original plaintext"
+            );
+        }
     }
-
 }

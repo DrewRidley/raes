@@ -1,9 +1,13 @@
 // This file holds the code to decrypt using our implementation of the AES algorithm.
 
-use std::{io::{self, Read, Write}, usize};
+use std::{
+    io::{self, Read, Write},
+    usize,
+};
 
 use crate::shared::{
-    add_round_key, expand_block_to_state, flatten_state_to_block, inverse_key_expansion, inverse_mix_columns, inverse_shift_rows, inverse_sub_bytes
+    add_round_key, expand_block_to_state, flatten_state_to_block, inverse_key_expansion,
+    inverse_mix_columns, inverse_shift_rows, inverse_sub_bytes,
 };
 
 pub fn decrypt_block(data: &[u8; 16], key: &[u8; 32]) -> [u8; 16] {
@@ -21,13 +25,19 @@ pub fn decrypt_block(data: &[u8; 16], key: &[u8; 32]) -> [u8; 16] {
 }
 
 const BLOCK_SIZE: usize = 16;
-pub fn decrypt_stream<R: Read, W: Write>(mut reader: R, mut writer: W, key: &[u8; 32]) -> io::Result<()> {
+pub fn decrypt_stream<R: Read, W: Write>(
+    mut reader: R,
+    mut writer: W,
+    key: &[u8; 32],
+) -> io::Result<()> {
     let mut buffer = [0u8; BLOCK_SIZE];
     let mut decrypted_blocks = Vec::new();
 
     loop {
         let read_size = reader.read(&mut buffer)?;
-        if read_size == 0 { break; }
+        if read_size == 0 {
+            break;
+        }
 
         let decrypted = decrypt_block(&buffer, key);
         decrypted_blocks.push((decrypted.to_vec(), read_size));
@@ -46,8 +56,6 @@ pub fn decrypt_stream<R: Read, W: Write>(mut reader: R, mut writer: W, key: &[u8
     Ok(())
 }
 
-
-
 fn perform_inverse_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
     println!("round[ 0].iinput\t{:x?}", state);
     println!(
@@ -57,7 +65,7 @@ fn perform_inverse_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
             round_keys[4 * 14 + 1],
             round_keys[4 * 14 + 2],
             round_keys[4 * 14 + 3],
-        ]   
+        ]
     );
     // Start with the final round key (after all rounds)
     *state = add_round_key(
@@ -83,12 +91,16 @@ fn perform_inverse_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
         inverse_mix_columns(state);
         println!("round[ {}].im_col\t{:x?}", 14 - i, state);
 
-        println!("round[ {}].ik_sch\t{:x?}", 14 - i, [
-            round_keys[4 * i],
-            round_keys[4 * i + 1],
-            round_keys[4 * i + 2],
-            round_keys[4 * i + 3],
-        ]);
+        println!(
+            "round[ {}].ik_sch\t{:x?}",
+            14 - i,
+            [
+                round_keys[4 * i],
+                round_keys[4 * i + 1],
+                round_keys[4 * i + 2],
+                round_keys[4 * i + 3],
+            ]
+        );
 
         *state = add_round_key(
             *state,
@@ -108,7 +120,10 @@ fn perform_inverse_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
     inverse_shift_rows(state);
     println!("round[ 14].is_row\t{:x?}", state);
 
-    println!("round[ 14].ik_sch\t{:x?}", [round_keys[0], round_keys[1], round_keys[2], round_keys[3]]);
+    println!(
+        "round[ 14].ik_sch\t{:x?}",
+        [round_keys[0], round_keys[1], round_keys[2], round_keys[3]]
+    );
 
     // Last AddRoundKey with the first round key
     *state = add_round_key(
@@ -116,7 +131,6 @@ fn perform_inverse_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
         [round_keys[0], round_keys[1], round_keys[2], round_keys[3]],
     );
     println!("round[ 14].ioutput\t{:x?}", state);
-
 }
 
 #[cfg(test)]
@@ -124,13 +138,13 @@ mod tests {
     use crate::{
         decrypt::perform_inverse_rounds,
         shared::{
-            add_round_key, expand_block_to_state, flatten_state_to_block, inverse_key_expansion, inverse_mix_columns, inverse_shift_rows, inverse_sub_bytes
+            add_round_key, expand_block_to_state, flatten_state_to_block, inverse_key_expansion,
+            inverse_mix_columns, inverse_shift_rows, inverse_sub_bytes,
         },
     };
 
     #[test]
     fn test_decrypt_first_round() {
-
         let key: [u8; 32] = [
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
             0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B,
@@ -143,15 +157,15 @@ mod tests {
 
         let round_keys = inverse_key_expansion(key);
         let mut state = expand_block_to_state(encrypted_data);
-    
+
         state = add_round_key(
             state,
             [
-            round_keys[4 * 14],
-            round_keys[4 * 14 + 1],
-            round_keys[4 * 14 + 2],
-            round_keys[4 * 14 + 3],
-        ]   ,
+                round_keys[4 * 14],
+                round_keys[4 * 14 + 1],
+                round_keys[4 * 14 + 2],
+                round_keys[4 * 14 + 3],
+            ],
         );
         assert_eq!(
             state,
@@ -206,11 +220,11 @@ mod tests {
         state = add_round_key(
             state,
             [
-            round_keys[4 * 13],
-            round_keys[4 * 13 + 1],
-            round_keys[4 * 13 + 2],
-            round_keys[4 * 13 + 3],
-        ],
+                round_keys[4 * 13],
+                round_keys[4 * 13 + 1],
+                round_keys[4 * 13 + 2],
+                round_keys[4 * 13 + 3],
+            ],
         );
         assert_eq!(
             state,

@@ -20,11 +20,14 @@ pub fn encrypt_block(data: &[u8; 16], key: &[u8; 32]) -> [u8; 16] {
     return output;
 }
 
-
 const BLOCK_SIZE: usize = 16;
 
 /// Encrypts data from the input stream and writes to the output stream without padding.
-pub fn encrypt_stream<R: Read, W: Write>(mut reader: R, mut writer: W, key: &[u8; 32]) -> io::Result<()> {
+pub fn encrypt_stream<R: Read, W: Write>(
+    mut reader: R,
+    mut writer: W,
+    key: &[u8; 32],
+) -> io::Result<()> {
     let mut buffer = [0u8; BLOCK_SIZE];
     let mut read_size = 0;
 
@@ -43,7 +46,6 @@ pub fn encrypt_stream<R: Read, W: Write>(mut reader: R, mut writer: W, key: &[u8
 
     Ok(())
 }
-
 
 fn perform_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
     println!("round[ 0].input\t{:x?}", state);
