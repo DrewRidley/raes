@@ -23,12 +23,11 @@ pub fn encrypt_block(data: &[u8; 16], key: &[u8; 32]) -> [u8; 16] {
 
 const BLOCK_SIZE: usize = 16;
 
-/// Encrypts data from the input stream and writes to the output stream.
+/// Encrypts data from the input stream and writes to the output stream without padding.
 pub fn encrypt_stream<R: Read, W: Write>(mut reader: R, mut writer: W, key: &[u8; 32]) -> io::Result<()> {
     let mut buffer = [0u8; BLOCK_SIZE];
     let mut read_size = 0;
 
-    // Encrypt full blocks
     while {
         read_size = reader.read(&mut buffer)?;
         read_size == BLOCK_SIZE
@@ -37,15 +36,9 @@ pub fn encrypt_stream<R: Read, W: Write>(mut reader: R, mut writer: W, key: &[u8
         writer.write_all(&encrypted)?;
     }
 
-    // Handle padding for the last block
     if read_size > 0 {
-        // PKCS7 padding
-        let pad_value = (BLOCK_SIZE - read_size) as u8;
-        for i in read_size..BLOCK_SIZE {
-            buffer[i] = pad_value;
-        }
         let encrypted = encrypt_block(&buffer, key);
-        writer.write_all(&encrypted)?;
+        writer.write_all(&encrypted[..read_size])?;
     }
 
     Ok(())

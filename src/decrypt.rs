@@ -8,7 +8,6 @@ use crate::shared::{
 };
 
 
-
 pub fn decrypt_block(data: &[u8; 16], key: &[u8; 32]) -> [u8; 16] {
     let round_key = key_expansion(*key);
     let mut output: [u8; 16] = [0; 16];
@@ -24,45 +23,31 @@ pub fn decrypt_block(data: &[u8; 16], key: &[u8; 32]) -> [u8; 16] {
 }
 
 const BLOCK_SIZE: usize = 16;
-
-/// Decrypts data from the input stream and writes to the output stream.
 pub fn decrypt_stream<R: Read, W: Write>(mut reader: R, mut writer: W, key: &[u8; 32]) -> io::Result<()> {
     let mut buffer = [0u8; BLOCK_SIZE];
-    let mut last_block = Vec::new();
+    let mut decrypted_blocks = Vec::new();
 
     loop {
         let read_size = reader.read(&mut buffer)?;
         if read_size == 0 { break; }
 
-        if read_size < BLOCK_SIZE {
-            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "Corrupted stream"));
-        }
-
         let decrypted = decrypt_block(&buffer, key);
-
-        if !last_block.is_empty() {
-            writer.write_all(&last_block)?;
-        }
-
-        last_block = decrypted.to_vec();
+        decrypted_blocks.push((decrypted.to_vec(), read_size));
     }
 
-    // Check and remove padding from the last decrypted block
-    if !last_block.is_empty() {
-        let pad_value = last_block[BLOCK_SIZE - 1] as usize;
-        if pad_value == 0 || pad_value > BLOCK_SIZE {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid padding"));
-        }
-        let pad_slice = &last_block[(BLOCK_SIZE - pad_value)..BLOCK_SIZE];
-        if !pad_slice.iter().all(|&x| x as usize == pad_value) {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid padding"));
-        }
-        last_block.truncate(BLOCK_SIZE - pad_value);
-        writer.write_all(&last_block)?;
+    // Write all blocks except the last one fully
+    for (block, size) in decrypted_blocks.iter().take(decrypted_blocks.len() - 1) {
+        writer.write_all(block)?;
+    }
+
+    // Write the last block according to its original size
+    if let Some((last_block, size)) = decrypted_blocks.last() {
+        writer.write_all(&last_block[..*size])?;
     }
 
     Ok(())
 }
+
 
 
 fn perform_inverse_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {

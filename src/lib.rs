@@ -1,4 +1,3 @@
-#![feature(slice_as_chunks)]
 mod constant;
 mod decrypt;
 mod encrypt;
@@ -6,8 +5,9 @@ mod encrypt;
 pub mod shared {
     use std::io::Cursor;
 
-    use crate::{constant::INVERSE_SBOX, encrypt::encrypt_stream};
-    pub use crate::constant::{ROUND_CONSTANTS, SBOX};
+    use crate::constant::INVERSE_SBOX;
+    use crate::constant::{ROUND_CONSTANTS, SBOX};
+    pub use crate::{encrypt::encrypt_stream , decrypt::decrypt_stream};
 
     pub fn key_expansion(key: [u8; 32]) -> [u32; 60] {
         const NK: usize = 8;
@@ -499,32 +499,6 @@ pub mod shared {
             let encrypted_data = encrypt_block(&plaintext, &key);
             let decrypted_data = decrypt_block(&encrypted_data, &key);
             assert_eq!(decrypted_data, plaintext);
-        }
-        
-        #[test]
-        fn test_many_blocks() {
-            let plaintext: [u8; 32] = [
-                0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 
-                0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 
-                0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
-            ];
-            let key: [u8; 32] = [
-                0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
-                0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
-                0x1c, 0x1d, 0x1e, 0x1f,
-            ];
-
-            let mut ciphertext: [u8; 32] = [0; 32];
-            let cipher_chunked = ciphertext.as_chunks_mut::<16>();
-            cipher_chunked.0[0] = encrypt_block(&plaintext[0..16].try_into().unwrap(), &key);   
-            cipher_chunked.0[1] = encrypt_block(&plaintext[16..32].try_into().unwrap(), &key);
-
-            let mut decrypted: [u8; 32] = [0; 32];
-            let decrypted_chunked = decrypted.as_chunks_mut::<16>();
-            decrypted_chunked.0[0] = decrypt_block(&cipher_chunked.0[0], &key);
-            decrypted_chunked.0[1] = decrypt_block(&cipher_chunked.0[1], &key);
-
-            assert_eq!(plaintext, decrypted);
         }
 
         #[test]
