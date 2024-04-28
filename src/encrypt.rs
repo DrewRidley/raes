@@ -46,9 +46,11 @@ pub fn encrypt_stream<R: Read, W: Write>(mut reader: R, mut writer: W, key: &[u8
 
 
 fn perform_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
-
     println!("round[ 0].input\t{:x?}", state);
-    println!("round[ 0].k_sch\t{:x?}", [round_keys[0], round_keys[1], round_keys[2], round_keys[3]]);
+    println!(
+        "round[ 0].k_sch\t{:x?}",
+        [round_keys[0], round_keys[1], round_keys[2], round_keys[3]]
+    );
 
     *state = add_round_key(
         *state,
@@ -77,13 +79,16 @@ fn perform_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
                 round_keys[4 * i + 3],
             ],
         );
-        println!("round[ {}].k_sch\t{:x?}", i, [
-            round_keys[4 * i],
-            round_keys[4 * i + 1],
-            round_keys[4 * i + 2],
-            round_keys[4 * i + 3],
-        ]);
-
+        println!(
+            "round[ {}].k_sch\t{:x?}",
+            i,
+            [
+                round_keys[4 * i],
+                round_keys[4 * i + 1],
+                round_keys[4 * i + 2],
+                round_keys[4 * i + 3],
+            ]
+        );
     }
     println!("round[ 14].start\t{:x?}", state);
 
@@ -109,8 +114,6 @@ fn perform_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
     );
 
     println!("round[ 14].start\t{:x?}", state);
-
-
 }
 
 #[cfg(test)]

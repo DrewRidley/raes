@@ -39,6 +39,48 @@ pub mod shared {
         w
     }
 
+    pub fn inverse_key_expansion(key: [u8; 32]) -> [u32; 60] {
+        const NK: usize = 8;
+        const NR: usize = 14;
+
+        let mut w: [u32; 60] = [0; 60];
+        let mut dw: [u32; 60] = [0; 60];
+        let mut temp;
+        let mut i = 0;    
+
+        while i <= NK-1 {
+            w[i] = u8s_to_u32([key[4 * i], key[4 * i + 1], key[4 * i + 2], key[4 * i + 3]]);
+            dw[i] = w[i];
+            i += 1;
+        }
+
+        assert!(i == NK);
+
+        while i <= 4 * NR + 3 {
+            temp = w[i - 1];
+            if i % NK == 0 {
+                temp = sub_word(rot_word(temp)) ^ ROUND_CONSTANTS[(i / NK) - 1];
+            }
+            else if NK > 6 && i % NK == 4 {
+                temp = sub_word(temp);
+            }
+            w[i] = w[i - NK] ^ temp;
+            dw[i] = w[i];
+            i += 1;
+        }
+        for round in 1..=NR-1 {
+            i = 4*round;
+            let mut t1 = expand_block_to_state(round_key_to_block([dw[i], dw[i+1], dw[i+2], dw[i+3]]));
+            inverse_mix_columns(&mut t1);
+            let t2 = block_to_round_key(flatten_state_to_block(t1));
+            dw[i] = t2[0];
+            dw[i+1] = t2[1];
+            dw[i+2] = t2[2];
+            dw[i+3] = t2[3];
+        }
+        dw
+    }
+
     fn u8s_to_u32(bytes: [u8; 4]) -> u32 {
         (bytes[0] as u32) << 24
             | (bytes[1] as u32) << 16
@@ -249,14 +291,29 @@ pub mod shared {
         output
     }
 
+    pub fn block_to_round_key(block: [u8; 16]) -> [u32; 4] {
+        let mut output = [0; 4];
+    
+        for i in 0..4 {
+            output[i] = u32::from_le_bytes([
+                block[i * 4 + 3], // Most significant byte last
+                block[i * 4 + 2],
+                block[i * 4 + 1],
+                block[i * 4],     // Least significant byte first
+            ]);
+        }
+    
+        output
+    }
+    
+
     #[cfg(test)]
     mod test {
         use crate::{
             decrypt::{self, decrypt_block, decrypt_stream},
             encrypt::encrypt_block,
-            shared,
         };
-        use shared::*;
+        use crate::shared::*;
 
         #[test]
         fn test_add_round_key() {
@@ -333,6 +390,11 @@ pub mod shared {
             ];
 
             assert_eq!(expanded_keys, expected_output);
+        }
+
+        #[test]
+        fn test_inverse_key_expansion() {
+
         }
 
         #[test]
@@ -502,7 +564,7 @@ pub mod shared {
         }
 
         #[test]
-        fn stream_encrypt_one_block() {
+        fn test_stream_encrypt_one_block() {
             let key: [u8; 32] = [
                 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
                 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B,
