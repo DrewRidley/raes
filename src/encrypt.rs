@@ -16,7 +16,7 @@ pub fn encrypt_block(data: &[u8; 16], key: &[u8; 32]) -> [u8; 16] {
 }
 
 fn perform_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
-    add_round_key(
+    *state = add_round_key(
         *state,
         [round_keys[0], round_keys[1], round_keys[2], round_keys[3]],
     );
@@ -40,7 +40,7 @@ fn perform_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
     // Final round (no mix columns)
     sub_bytes_state(state);
 
-    add_round_key(
+    *state = add_round_key(
         *state,
         [
             round_keys[4 * 14],

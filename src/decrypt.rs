@@ -18,3 +18,41 @@ pub fn decrypt_block(data: &[u8; 16], key: &[u8; 32]) -> [u8; 16] {
     return output;
 }
 
+fn perform_inverse_rounds(state: &mut [[u8; 4]; 4], round_keys: &[u32; 60]) {
+    // Start with the final round key (after all rounds)
+    *state = add_round_key(
+        *state,
+        [
+            round_keys[4 * 14],
+            round_keys[4 * 14 + 1],
+            round_keys[4 * 14 + 2],
+            round_keys[4 * 14 + 3],
+        ],
+    );
+
+    // Inverse final round (no mix columns)
+    inverse_sub_bytes(state);
+    inverse_shift_rows(state);
+
+    // Do the rest of the rounds in reverse order
+    for i in (1..14).rev() {
+        *state = add_round_key(
+            *state,
+            [
+                round_keys[4 * i],
+                round_keys[4 * i + 1],
+                round_keys[4 * i + 2],
+                round_keys[4 * i + 3],
+            ],
+        );
+        inverse_mix_columns(state);
+        inverse_sub_bytes(state);
+        inverse_shift_rows(state);
+    }
+
+    // Last AddRoundKey with the first round key
+    *state = add_round_key(
+        *state,
+        [round_keys[0], round_keys[1], round_keys[2], round_keys[3]],
+    );
+}
